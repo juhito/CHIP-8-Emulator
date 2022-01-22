@@ -1,0 +1,17 @@
+{
+    "name": "chip-8",
+    "version": "0.0.1",
+    "description": "A Chip-8 Emulator in Typescript",
+    "main": "src/main.js",
+    "scripts": {
+        "dev": "tsc && node dist/main.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "chip8",
+        "emulator",
+        "typescript"
+    ],
+    "author": "juhito",
+    "license": "MIT"
+}
