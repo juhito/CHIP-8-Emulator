@@ -67,6 +67,35 @@ export class Emulator {
         }
     }
 
+    // represents each clock cycle.
+    public tick(): void {
+        /*
+          1. Fetch the instruction from RAM @ the address pointed by the SP.
+          2. Decode the instruction.
+          3. Execute the instruction.
+          4. Increment SP and repeat.
+        */
+
+        const op: number = this._fetch();
+        this._execute(op);
+    }
+
+    // Fetch the instruction (known as an opcode) from RAM 
+    private _fetch(): number {
+        const higher_byte: number = this._memory[this._pc];
+        const lower_byte: number = this._memory[this._pc + 1];
+
+        this._pc += 2; // move forward 2 bytes
+
+        // combine the two values as Big Endian.
+        return (higher_byte << 8) | lower_byte;
+    }
+
+    // Decode the opcode and do pattern matching
+    private _execute(opcode: number): void {
+        
+    }
+
     // Adds the given value to the spot pointed by the SP, then moves the pointer to the next position.
     public push(data: number): void {
         this._stack[this._sp] = data;
