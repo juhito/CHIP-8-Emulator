@@ -60,6 +60,11 @@ export class Emulator {
         this._keys = new Array<boolean>(constants.key_size);
         
         this._screen = new Array<boolean>(constants.screen_width * constants.screen_height);
+
+        // Populates the font data in the first 80 bytes of memory.
+        for(let i: number = 0; i < constants.font_size; i++) {
+            this._memory[i] = constants.font_set[i];
+        }
     }
 
     // Adds the given value to the spot pointed by the SP, then moves the pointer to the next position.
@@ -72,5 +77,9 @@ export class Emulator {
     public pop(): number {
         this._sp -= 1;
         return this._stack[this._sp];
+    }
+
+    public printMemory(): void {
+        console.log(`Memory: ${this._memory}\nStack: ${this._stack}\nVreg: ${this._vreg}\n`);
     }
 }
