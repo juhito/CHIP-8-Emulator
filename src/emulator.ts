@@ -41,7 +41,6 @@ export class Emulator {
 
     private _keys: Array<boolean>;
     
-
     private _screen: Array<boolean>; 
     
     constructor() {
@@ -70,10 +69,10 @@ export class Emulator {
     // represents each clock cycle.
     public tick(): void {
         /*
-          1. Fetch the instruction from RAM @ the address pointed by the SP.
+          1. Fetch the instruction from RAM @ the address pointed by the PC.
           2. Decode the instruction.
           3. Execute the instruction.
-          4. Increment SP and repeat.
+          4. Increment PC and repeat.
         */
 
         const op: number = this._fetch();
