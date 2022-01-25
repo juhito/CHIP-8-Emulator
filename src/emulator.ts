@@ -106,4 +106,28 @@ export class Emulator {
         this._sp -= 1;
         return this._stack[this._sp];
     }
+
+    // add a way to reset without making a new object
+    public reset(): void {
+        this._memory = new Uint8Array(constants.ram_size);
+        this._stack = new Uint16Array(constants.stack_size);
+        
+        this._vreg = new Uint8Array(constants.reg_size);
+        this._ireg = 0;
+
+        this._sp = -1;
+        this._pc = 0x200;
+
+        this._dt = 0;
+        this._st = 0;
+
+        this._keys = new Array<boolean>(constants.key_size);
+        
+        this._screen = new Array<boolean>(constants.screen_width * constants.screen_height);
+
+        // Populates the font data in the first 80 bytes of memory.
+        for(let i: number = 0; i < constants.font_size; i++) {
+            this._memory[i] = constants.font_set[i];
+        }
+    }
 }
