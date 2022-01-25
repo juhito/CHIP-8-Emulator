@@ -77,6 +77,13 @@ export class Emulator {
 
         const op: number = this._fetch();
         this._execute(op);
+
+        // update timers
+        if(this._dt > 0) this._dt -= 1;
+        if(this._st > 0) {
+            if(this._st == 1) console.log("make beep sound :)");
+            this._st -= 1;
+        }
     }
 
     // Fetch the instruction (known as an opcode) from RAM 
@@ -92,7 +99,13 @@ export class Emulator {
 
     // Decode the opcode and do pattern matching
     private _execute(opcode: number): void {
-        
+
+        // Get rid of the first four bits aka "nibble"
+        switch(opcode & 0xF000) {
+            case 0x0000: {
+                
+            }
+        }
     }
 
     // Adds the given value to the spot pointed by the SP, then moves the pointer to the next position.
