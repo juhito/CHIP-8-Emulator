@@ -81,13 +81,13 @@ export class Emulator {
 
     // Fetch the instruction (known as an opcode) from RAM 
     private _fetch(): number {
-        const higher_byte: number = this._memory[this._pc];
-        const lower_byte: number = this._memory[this._pc + 1];
+        const first_byte: number = this._memory[this._pc];
+        const second_byte: number = this._memory[this._pc + 1];
 
         this._pc += 2; // move forward 2 bytes
 
         // combine the two values as Big Endian.
-        return (higher_byte << 8) | lower_byte;
+        return (first_byte << 8) | second_byte;
     }
 
     // Decode the opcode and do pattern matching
@@ -105,9 +105,5 @@ export class Emulator {
     public pop(): number {
         this._sp -= 1;
         return this._stack[this._sp];
-    }
-
-    public printMemory(): void {
-        console.log(`Memory: ${this._memory}\nStack: ${this._stack}\nVreg: ${this._vreg}\n`);
     }
 }
