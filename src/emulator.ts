@@ -86,40 +86,12 @@ export class Emulator {
         }
     }
 
-    // Fetch the instruction (known as an opcode) from RAM 
-    private _fetch(): number {
-        const first_byte: number = this._memory[this._pc];
-        const second_byte: number = this._memory[this._pc + 1];
-
-        this._pc += 2; // move forward 2 bytes
-
-        // combine the two values as Big Endian.
-        return (first_byte << 8) | second_byte;
-    }
-
-    // Decode the opcode and do pattern matching
-    private _execute(opcode: number): void {
-
-        // Get rid of the first four bits aka "nibble"
-        switch(opcode & 0xF000) {
-            case 0x0000: {
-                
-            }
+    public load(data: Uint8Array): void {
+        for(let i: number = 0; i < data.length; i++) {
+            this._memory[this._pc + i] = data[i];
         }
     }
-
-    // Adds the given value to the spot pointed by the SP, then moves the pointer to the next position.
-    public push(data: number): void {
-        this._stack[this._sp] = data;
-        this._sp += 1;
-    }
     
-    // Moves the SP back to the previous position and then returns its value.
-    public pop(): number {
-        this._sp -= 1;
-        return this._stack[this._sp];
-    }
-
     // add a way to reset without making a new object
     public reset(): void {
         this._memory = new Uint8Array(constants.ram_size);
@@ -142,5 +114,80 @@ export class Emulator {
         for(let i: number = 0; i < constants.font_size; i++) {
             this._memory[i] = constants.font_set[i];
         }
+    }
+
+    // Fetch the instruction (known as an opcode) from RAM 
+    private _fetch(): number {
+        const first_byte: number = this._memory[this._pc];
+        const second_byte: number = this._memory[this._pc + 1];
+
+        this._pc += 2; // move forward 2 bytes
+
+        // combine the two values as Big Endian.
+        return (first_byte << 8) | second_byte;
+    }
+
+    // Decode the opcode and do pattern matching
+    private _execute(opcode: number): void {
+        // Mask of the the first number in the instruction
+        // This first number indicates what kind of instruction it is.
+        switch(opcode & 0xF000) {
+            case 0x0000:
+                switch(opcode & 0x000F) {
+                    case 0x00E0:
+                        break;
+                    case 0x00EE:
+                        break;
+                }
+            case 0x1000: // 1NNN: jump NNN
+                break;
+            case 0x2000: // 2NNN: Call addr
+                break;
+            case 0x3000: // 3XNN: if vx != NN 
+                break;
+            case 0x4000: // 4XNN: if vx == NN
+                break;
+            case 0x5000: // 5XYO: if vx != vy 
+                break;
+            case 0x6000: // 6XNN: vx = NN
+                break;
+            case 0x7000: // 7XNN: vx += NN
+                break;
+            case 0x8000: // 8XYO - 8XYE
+                // includes way more instructions
+                // compare the last byte
+                break;
+            case 0x9000: // 9XYO: if vx == vy
+                break;
+            case 0xA000: // ANNN: pc = NNN
+                break;
+            case 0xB000: // BNNN: jump to NNN + _vreg[0]
+                break;
+            case 0xC000: // CXNN: _vreg[vx] = rand & least significant byte
+                break;
+            case 0xD000: // DXYN: draw and erase pixels
+                break;
+            case 0xE000: // EX9E: if vx not key pressed
+                // EXA1: if vx key pressed
+                break;
+            case 0xF000: // FX07 - FX65
+                // includes more instructions
+                // compare the two last bytes
+                break;
+            default:
+                break;
+        }
+    }
+
+    // Adds the given value to the spot pointed by the SP, then moves the pointer to the next position.
+    private _push(data: number): void {
+        this._stack[this._sp] = data;
+        this._sp += 1;
+    }
+    
+    // Moves the SP back to the previous position and then returns its value.
+    private _pop(): number {
+        this._sp -= 1;
+        return this._stack[this._sp];
     }
 }
