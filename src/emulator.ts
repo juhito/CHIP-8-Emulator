@@ -50,7 +50,7 @@ export class Emulator {
         this._vreg = new Uint8Array(constants.reg_size);
         this._ireg = 0;
 
-        this._sp = -1;
+        this._sp = 0;
         this._pc = 0x200;
 
         this._dt = 0;
@@ -100,7 +100,7 @@ export class Emulator {
         this._vreg = new Uint8Array(constants.reg_size);
         this._ireg = 0;
 
-        this._sp = -1;
+        this._sp = 0;
         this._pc = 0x200;
 
         this._dt = 0;
@@ -129,46 +129,100 @@ export class Emulator {
 
     // Decode the opcode and do pattern matching
     private _execute(opcode: number): void {
+
+        /*
+          vx is the second nibble of the first instruction.
+          vy is the third nibble of the second instruction.
+
+          For example, if we have a instruction consisting of 0x8451, we use bitwise AND
+          to get rid of everything we don't need and then shift right to get the result
+          we want.
+
+          vx is in this example 0x4
+          vy is in this example 0x5
+
+          (opcode & 0x0F00) = 0x0400
+          (opcode & 0x00F0) = 0x0050
+          
+          0x0400 >> 8 = 0x04 or 0x4
+          0x0050 >> 4 = 0x05 or 0x5
+
+          These are used to look up values in the register.
+         */
+        const x: number = (opcode & 0x0F00) >> 8;
+        const y: number = (opcode & 0x00F0) >> 4;
+        
         // Mask of the the first number in the instruction
         // This first number indicates what kind of instruction it is.
         switch(opcode & 0xF000) {
             case 0x0000:
                 switch(opcode & 0x000F) {
-                    case 0x00E0:
+                    case 0x00E0: // clear the screen
+                        this._screen = new Array<boolean>(constants.screen_width * constants.screen_height);
                         break;
-                    case 0x00EE:
+                    case 0x00EE: // return from subroutine
+                        this._pc = this._pop();
                         break;
                 }
             case 0x1000: // 1NNN: jump NNN
+                this._pc = (opcode & 0x0FFF);
                 break;
             case 0x2000: // 2NNN: Call addr
                 break;
-            case 0x3000: // 3XNN: if vx != NN 
+            case 0x3000: // 3XNN: if _vreg[x] != NN 
                 break;
-            case 0x4000: // 4XNN: if vx == NN
+            case 0x4000: // 4XNN: if _vreg[x] == NN
                 break;
-            case 0x5000: // 5XYO: if vx != vy 
+            case 0x5000: // 5XY0: if _vreg[x] != _vreg[y] 
                 break;
-            case 0x6000: // 6XNN: vx = NN
+            case 0x6000: // 6XNN: _vreg[x] = NN
+                this._vreg[x] = (opcode & 0x00FF);
                 break;
-            case 0x7000: // 7XNN: vx += NN
+            case 0x7000: // 7XNN: _vreg[x] += NN
+                this._vreg[x] += (opcode & 0x00FF);
                 break;
-            case 0x8000: // 8XYO - 8XYE
+            case 0x8000: // 8XY0 - 8XYE
                 // includes way more instructions
                 // compare the last byte
                 break;
-            case 0x9000: // 9XYO: if vx == vy
+            case 0x9000: // 9XY0: if _vreg[x] == _vreg[y]
                 break;
-            case 0xA000: // ANNN: pc = NNN
+            case 0xA000: // ANNN: _ireg = NNN
+                this._ireg = (opcode & 0x0FFF);
                 break;
             case 0xB000: // BNNN: jump to NNN + _vreg[0]
                 break;
-            case 0xC000: // CXNN: _vreg[vx] = rand & least significant byte
+            case 0xC000: // CXNN: _vreg[x] = rand & least significant byte
                 break;
             case 0xD000: // DXYN: draw and erase pixels
+
+                let x_coord: number = this._vreg[x] & 63;
+                let y_coord: number = this._vreg[y] & 31;
+
+                this._vreg[0x000F] = 0;
+
+                for(let i: number; i < y_coord; i++) {
+                    // Get the Nth byte of sprite data, counting from the memory
+                    // address in the I regsiter
+                    let sprite: number = this._memory[this._ireg + i];
+
+                    // for each of the 8 pixels in this sprite row
+                    for(let j: number; j < x_coord; j++) {
+
+                        // If the current pixel in the sprite row is on and the pixel
+                        // at coordinates X,Y on the screen is also on, turn of the
+                        // pixel and set VF to 1
+
+                        // Or if the current pixel in the sprite row is on and the screen
+                        // pixel is not, draw the pixel at the X and Y coordinates.
+
+                        // If you reach the right edge of the screen, stop drawing this row               
+                    }
+                }
+                
                 break;
-            case 0xE000: // EX9E: if vx not key pressed
-                // EXA1: if vx key pressed
+            case 0xE000: // EX9E: if _vreg[x] not key pressed
+                // EXA1: if _vreg[x] key pressed
                 break;
             case 0xF000: // FX07 - FX65
                 // includes more instructions
