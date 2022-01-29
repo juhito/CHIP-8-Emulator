@@ -87,7 +87,7 @@ export class Emulator {
     }
 
     public load(data: Uint8Array): void {
-        for(let i: number = 0; i < data.length; i++) {
+        for(let i: number = this._pc; i < data.length; i++) {
             this._memory[this._pc + i] = data[i];
         }
     }
