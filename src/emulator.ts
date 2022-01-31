@@ -157,13 +157,14 @@ export class Emulator {
         // This first number indicates what kind of instruction it is.
         switch(opcode & 0xF000) {
             case 0x0000:
-                //console.log("0x0000");
                 switch(opcode & 0x000F) {
                     case 0x00E0: // clear the screen
                         this._screen = new Screen();
                         break;
                     case 0x00EE: // return from subroutine
-                        this._pc = this._pop();
+                        this._pc = this._stack[this._pc];
+                        console.log("subroutine return");
+                        this._sp--;
                         break;
                 }
             case 0x1000: // 1NNN: jump NNN
@@ -264,7 +265,7 @@ export class Emulator {
                     let sprite: number = this._memory[this._ireg + i];
 
                     for(let j: number = 0; j < 8; j++) {
-                        if((sprite & (0x80 >> j)) != 0) {
+                        if((sprite & 0x80) != 0) {
                             let xx: number = (x_coord + j) % constants.screen_width;
                             let yy: number = (y_coord + i) % constants.screen_height;
 
