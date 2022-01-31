@@ -1,4 +1,5 @@
 import * as constants from "./utils/constants";
+import { Screen } from "./screen";
 
 export class Emulator {
     /*
@@ -41,7 +42,7 @@ export class Emulator {
 
     private _keys: Array<boolean>;
     
-    private _screen: Array<boolean>; 
+    private _screen: Screen; 
     
     constructor() {
         this._memory = new Uint8Array(constants.ram_size);
@@ -57,9 +58,8 @@ export class Emulator {
         this._st = 0;
 
         this._keys = new Array<boolean>(constants.key_size);
-        
-        this._screen = new Array<boolean>(constants.screen_width * constants.screen_height);
 
+        this._screen = new Screen();
         // Populates the font data in the first 80 bytes of memory.
         for(let i: number = 0; i < constants.font_size; i++) {
             this._memory[i] = constants.font_set[i];
@@ -77,6 +77,7 @@ export class Emulator {
 
         const op: number = this._fetch();
         this._execute(op);
+        //this._screen.render();
 
         // update timers
         if(this._dt > 0) this._dt -= 1;
@@ -87,7 +88,7 @@ export class Emulator {
     }
 
     public load(data: Uint8Array): void {
-        for(let i: number = this._pc; i < data.length; i++) {
+        for(let i: number = 0; i < data.length; i++) {
             this._memory[this._pc + i] = data[i];
         }
     }
@@ -108,7 +109,7 @@ export class Emulator {
 
         this._keys = new Array<boolean>(constants.key_size);
         
-        this._screen = new Array<boolean>(constants.screen_width * constants.screen_height);
+        this._screen = new Screen();
 
         // Populates the font data in the first 80 bytes of memory.
         for(let i: number = 0; i < constants.font_size; i++) {
@@ -123,7 +124,8 @@ export class Emulator {
 
         this._pc += 2; // move forward 2 bytes
 
-        // combine the two values as Big Endian.
+        // combine the two values
+        //console.log("instruction: " + ((first_byte << 8) | second_byte).toString(16));
         return (first_byte << 8) | second_byte;
     }
 
@@ -151,14 +153,14 @@ export class Emulator {
          */
         const x: number = (opcode & 0x0F00) >> 8;
         const y: number = (opcode & 0x00F0) >> 4;
-        
         // Mask of the the first number in the instruction
         // This first number indicates what kind of instruction it is.
         switch(opcode & 0xF000) {
             case 0x0000:
+                //console.log("0x0000");
                 switch(opcode & 0x000F) {
                     case 0x00E0: // clear the screen
-                        this._screen = new Array<boolean>(constants.screen_width * constants.screen_height);
+                        this._screen = new Screen();
                         break;
                     case 0x00EE: // return from subroutine
                         this._pc = this._pop();
@@ -168,12 +170,20 @@ export class Emulator {
                 this._pc = (opcode & 0x0FFF);
                 break;
             case 0x2000: // 2NNN: Call addr
+                this._push(this._pc);
+                this._pc = (opcode & 0x0FFF);
                 break;
-            case 0x3000: // 3XNN: if _vreg[x] != NN 
+            case 0x3000: // 3XNN: if _vreg[x] != NN
+                if(this._vreg[x] === (opcode & 0x00FF))
+                    this._pc += 2;
                 break;
             case 0x4000: // 4XNN: if _vreg[x] == NN
+                if(this._vreg[x] !== (opcode & 0x00FF))
+                    this._pc += 2;
                 break;
-            case 0x5000: // 5XY0: if _vreg[x] != _vreg[y] 
+            case 0x5000: // 5XY0: if _vreg[x] != _vreg[y]
+                if(this._vreg[x] === this._vreg[y])
+                    this._pc += 2;
                 break;
             case 0x6000: // 6XNN: _vreg[x] = NN
                 this._vreg[x] = (opcode & 0x00FF);
@@ -182,41 +192,87 @@ export class Emulator {
                 this._vreg[x] += (opcode & 0x00FF);
                 break;
             case 0x8000: // 8XY0 - 8XYE
-                // includes way more instructions
-                // compare the last byte
+                switch(opcode & 0x000F) {
+                    case 0x8000:
+                        this._vreg[x] = this._vreg[y];
+                        break;
+                    case 0x8001:
+                        this._vreg[x] |= this._vreg[y];
+                        break;
+                    case 0x8002:
+                        this._vreg[x] &= this._vreg[y];
+                        break;
+                    case 0x8003:
+                        this._vreg[x] ^= this._vreg[y];
+                        break;
+                    case 0x8004:
+
+                        let sum: number = (this._vreg[x] += this._vreg[y]);
+                        this._vreg[0x000F] = 0;
+
+                        if(sum > 255)
+                            this._vreg[0x000F] = 1;
+
+                        this._vreg[x] = sum;
+                       
+                        break;
+                    case 0x8005:
+                        this._memory[0x000F] = 0;
+                        if(this._vreg[x] > this._vreg[y])
+                            this._memory[0x000F] = 1;
+                        
+                        this._vreg[x] -= this._vreg[y];
+                        break;
+                    case 0x8006:
+                        this._vreg[0x000F] = (this._vreg[x] & 0x1);
+
+                        this._vreg[x] >>= 1;
+                        break;
+                    case 0x8007:
+                        this._memory[0x000F] = 0;
+                        if(this._vreg[x] < this._vreg[y])
+                            this._memory[0x000F] = 1;
+
+                        this._vreg[x] = this._vreg[y] - this._vreg[x];
+                        break;
+                    case 0x800E:
+                        this._vreg[0x000F] = (this._vreg[x] & 0x80);
+                        this._vreg[x] <<= 1;
+                        break;
+                }
                 break;
             case 0x9000: // 9XY0: if _vreg[x] == _vreg[y]
+                if(this._vreg[x] !== this._vreg[y])
+                    this._pc += 2;
                 break;
             case 0xA000: // ANNN: _ireg = NNN
                 this._ireg = (opcode & 0x0FFF);
                 break;
             case 0xB000: // BNNN: jump to NNN + _vreg[0]
+                this._pc = (opcode & 0x0FFF) + this._vreg[0];
                 break;
             case 0xC000: // CXNN: _vreg[x] = rand & least significant byte
+                this._vreg[x] = (Math.random() * 255) & (opcode & 0x00FF);
                 break;
             case 0xD000: // DXYN: draw and erase pixels
-
-                let x_coord: number = this._vreg[x] & 63;
-                let y_coord: number = this._vreg[y] & 31;
-
+                let x_coord: number = this._vreg[x];
+                let y_coord: number = this._vreg[y];
+                let height: number = (opcode & 0x000F);
                 this._vreg[0x000F] = 0;
-
-                for(let i: number; i < y_coord; i++) {
-                    // Get the Nth byte of sprite data, counting from the memory
-                    // address in the I regsiter
+                
+                for(let i: number = 0; i < height; i++) {
                     let sprite: number = this._memory[this._ireg + i];
 
-                    // for each of the 8 pixels in this sprite row
-                    for(let j: number; j < x_coord; j++) {
+                    for(let j: number = 0; j < 8; j++) {
+                        if((sprite & (0x80 >> j)) != 0) {
+                            let xx: number = (x_coord + j) % constants.screen_width;
+                            let yy: number = (y_coord + i) % constants.screen_height;
 
-                        // If the current pixel in the sprite row is on and the pixel
-                        // at coordinates X,Y on the screen is also on, turn of the
-                        // pixel and set VF to 1
+                            if(this._screen.drawPixel(xx, yy))
+                                this._vreg[0x000F] = 1;
+                        }
 
-                        // Or if the current pixel in the sprite row is on and the screen
-                        // pixel is not, draw the pixel at the X and Y coordinates.
-
-                        // If you reach the right edge of the screen, stop drawing this row               
+                        sprite <<= 1;
                     }
                 }
                 
@@ -225,10 +281,44 @@ export class Emulator {
                 // EXA1: if _vreg[x] key pressed
                 break;
             case 0xF000: // FX07 - FX65
-                // includes more instructions
-                // compare the two last bytes
+                switch(opcode & 0x00FF) {
+                    case 0xF007:
+                        this._vreg[x] = this._dt;
+                        break;
+                    case 0xF015:
+                        this._dt = this._vreg[x];
+                        break;
+                    case 0xF018:
+                        this._st = this._vreg[x];
+                        break;
+                    case 0xF01E:
+                        this._ireg += this._vreg[x];
+                        break;
+                    case 0xF00A:
+                        //TODO 
+                        break;
+                    case 0xF029:
+                        this._ireg = this._vreg[x] * 5;
+                        break;
+                    case 0xF033:
+                        this._memory[this._ireg] = this._vreg[x] / 100;
+
+                        this._memory[this._ireg + 1] = (this._vreg[x] % 100) / 10;
+
+                        this._memory[this._ireg + 2] = this._vreg[x] % 10;
+                        break;
+                    case 0xF055:
+                        for(let i: number = 0; i <= x; i++)
+                            this._memory[this._ireg + i] = this._vreg[i];
+                        break;
+                    case 0xF065:
+                        for(let i: number = 0; i <= x; i++)
+                            this._vreg[i] = this._memory[this._ireg + i];
+                        break;
+                }
                 break;
             default:
+                console.log("doesnt match");
                 break;
         }
     }
