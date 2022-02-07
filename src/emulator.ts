@@ -39,16 +39,17 @@ export class Emulator {
      */
     private dt: number;
     private st: number;
-    private step: number;
-    
+
     private keys: Array<boolean>;
-    
-    private screen: Screen; 
-    
+
+    private screen: Screen;
+
+    private running: boolean;
+
     constructor() {
         this.memory = new Uint8Array(constants.ram_size);
         this.stack = new Uint16Array(constants.stack_size);
-        
+
         this.vreg = new Uint8Array(constants.reg_size);
         this.ireg = 0;
 
@@ -61,10 +62,13 @@ export class Emulator {
         this.keys = new Array<boolean>(constants.key_size);
 
         this.screen = new Screen();
+        this.screen.onKeyPress(this.keys);
         // Populates the font data in the first 80 bytes of memory.
-        for(let i: number = 0; i < constants.font_size; i++) {
+        for (let i: number = 0; i < constants.font_size; i++) {
             this.memory[i] = constants.font_set[i];
         }
+
+        this.running = true;
     }
 
     // represents each clock cycle.
@@ -75,28 +79,30 @@ export class Emulator {
           3. Execute the instruction.
           4. Increment PC and repeat.
         */
-        const op: number = this.fetch();
-        this.execute(op);
+        if (this.running) {
+            const op: number = this.fetch();
+            this.execute(op);
 
-        // update timers
-        if(this.dt > 0) this.dt -= 1;
-        if(this.st > 0) {
-            if(this.st == 1) console.log("make beep sound :)");
-            this.st -= 1;
+            // update timers
+            if (this.dt > 0) this.dt -= 1;
+            if (this.st > 0) {
+                if (this.st == 1) console.log("make beep sound :)");
+                this.st -= 1;
+            }
         }
     }
 
     public load(data: Uint8Array): void {
-        for(let i: number = 0; i < data.length; i++) {
+        for (let i: number = 0; i < data.length; i++) {
             this.memory[this.pc + i] = data[i];
         }
     }
-    
+
     // add a way to reset without making a new object
     public reset(): void {
         this.memory = new Uint8Array(constants.ram_size);
         this.stack = new Uint16Array(constants.stack_size);
-        
+
         this.vreg = new Uint8Array(constants.reg_size);
         this.ireg = 0;
 
@@ -107,11 +113,11 @@ export class Emulator {
         this.st = 0;
 
         this.keys = new Array<boolean>(constants.key_size);
-        
+
         this.screen = new Screen();
 
         // Populates the font data in the first 80 bytes of memory.
-        for(let i: number = 0; i < constants.font_size; i++) {
+        for (let i: number = 0; i < constants.font_size; i++) {
             this.memory[i] = constants.font_set[i];
         }
     }
@@ -153,9 +159,9 @@ export class Emulator {
         const y: number = (opcode & 0x00F0) >> 4;
         // Mask of the the first number in the instruction
         // This first number indicates what kind of instruction it is.
-        switch(opcode & 0xF000) {
+        switch (opcode & 0xF000) {
             case 0x0000:
-                switch(opcode & 0x000F) {
+                switch (opcode & 0x00FF) {
                     case 0x00E0: // clear the screen
                         this.screen = new Screen();
                         break;
@@ -174,15 +180,15 @@ export class Emulator {
                 this.pc = (opcode & 0x0FFF);
                 break;
             case 0x3000: // 3XNN: if vreg[x] != NN
-                if(this.vreg[x] === (opcode & 0x00FF))
+                if (this.vreg[x] === (opcode & 0x00FF))
                     this.pc += 2;
                 break;
             case 0x4000: // 4XNN: if vreg[x] == NN
-                if(this.vreg[x] !== (opcode & 0x00FF))
+                if (this.vreg[x] !== (opcode & 0x00FF))
                     this.pc += 2;
                 break;
             case 0x5000: // 5XY0: if vreg[x] != vreg[y]
-                if(this.vreg[x] === this.vreg[y])
+                if (this.vreg[x] === this.vreg[y])
                     this.pc += 2;
                 break;
             case 0x6000: // 6XNN: vreg[x] = NN
@@ -192,7 +198,7 @@ export class Emulator {
                 this.vreg[x] += (opcode & 0x00FF);
                 break;
             case 0x8000: // 8XY0 - 8XYE
-                switch(opcode & 0x000F) {
+                switch (opcode & 0xF00F) {
                     case 0x8000:
                         this.vreg[x] = this.vreg[y];
                         break;
@@ -210,17 +216,17 @@ export class Emulator {
                         let sum: number = (this.vreg[x] += this.vreg[y]);
                         this.vreg[0x000F] = 0;
 
-                        if(sum > 255)
+                        if (sum > 255)
                             this.vreg[0x000F] = 1;
 
                         this.vreg[x] = sum;
-                       
+
                         break;
                     case 0x8005:
                         this.memory[0x000F] = 0;
-                        if(this.vreg[x] > this.vreg[y])
+                        if (this.vreg[x] > this.vreg[y])
                             this.memory[0x000F] = 1;
-                        
+
                         this.vreg[x] -= this.vreg[y];
                         break;
                     case 0x8006:
@@ -230,7 +236,7 @@ export class Emulator {
                         break;
                     case 0x8007:
                         this.memory[0x000F] = 0;
-                        if(this.vreg[x] < this.vreg[y])
+                        if (this.vreg[x] < this.vreg[y])
                             this.memory[0x000F] = 1;
 
                         this.vreg[x] = this.vreg[y] - this.vreg[x];
@@ -242,7 +248,7 @@ export class Emulator {
                 }
                 break;
             case 0x9000: // 9XY0: if vreg[x] == vreg[y]
-                if(this.vreg[x] !== this.vreg[y])
+                if (this.vreg[x] !== this.vreg[y])
                     this.pc += 2;
                 break;
             case 0xA000: // ANNN: ireg = NNN
@@ -259,29 +265,37 @@ export class Emulator {
                 let ycoord: number = this.vreg[y];
                 let height: number = (opcode & 0x000F);
                 this.vreg[0x000F] = 0;
-                
-                for(let i: number = 0; i < height; i++) {
+
+                for (let i: number = 0; i < height; i++) {
                     let sprite: number = this.memory[this.ireg + i];
 
-                    for(let j: number = 0; j < 8; j++) {
-                        if((sprite & 0x80) != 0) {
+                    for (let j: number = 0; j < 8; j++) {
+                        if ((sprite & 0x80) != 0) {
                             let xx: number = (xcoord + j) % constants.screen_width; // wrap around width
                             let yy: number = (ycoord + i) % constants.screen_height; // wrap around height
 
-                            if(this.screen.drawPixel(xx, yy))
+                            if (this.screen.drawPixel(xx, yy))
                                 this.vreg[0x000F] = 1;
                         }
 
                         sprite <<= 1;
                     }
                 }
-                
+
                 break;
-            case 0xE000: // EX9E: if vreg[x] not key pressed
-                // EXA1: if vreg[x] key pressed
+            case 0xE000: // EX9E: if vreg[x] key pressed
+                // EXA1: if vreg[x] key not pressed
+                switch (opcode & 0x00FF) {
+                    case 0xE09E:
+                        if (this.keys[this.vreg[x]]) this.pc += 2;
+                        break;
+                    case 0xE0A1:
+                        if (!this.keys[this.vreg[x]]) this.pc += 2;
+                        break;
+                }
                 break;
             case 0xF000: // FX07 - FX65
-                switch(opcode & 0x00FF) {
+                switch (opcode & 0xF0FF) {
                     case 0xF007:
                         this.vreg[x] = this.dt;
                         break;
@@ -295,7 +309,7 @@ export class Emulator {
                         this.ireg += this.vreg[x];
                         break;
                     case 0xF00A:
-                        //TODO 
+                        //TODO
                         break;
                     case 0xF029:
                         this.ireg = this.vreg[x] * 5;
@@ -308,11 +322,11 @@ export class Emulator {
                         this.memory[this.ireg + 2] = this.vreg[x] % 10;
                         break;
                     case 0xF055:
-                        for(let i: number = 0; i <= x; i++)
+                        for (let i: number = 0; i <= x; i++)
                             this.memory[this.ireg + i] = this.vreg[i];
                         break;
                     case 0xF065:
-                        for(let i: number = 0; i <= x; i++)
+                        for (let i: number = 0; i <= x; i++)
                             this.vreg[i] = this.memory[this.ireg + i];
                         break;
                 }
